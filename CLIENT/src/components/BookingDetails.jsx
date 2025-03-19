@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import { bookingService } from "../components/utils/api";
+import { toast } from "sonner";
+import {
+  getFullImageUrl,
+  handleImageError,
+  getStatusClass,
+} from "../components/utils/utils";
 
 const BookingDetails = () => {
   const { id } = useParams();
@@ -14,23 +20,18 @@ const BookingDetails = () => {
     const fetchBookingDetails = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token");
 
-        const response = await axios.get(
-          `http://localhost:5000/api/bookings/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        console.log("Fetching booking details for ID:", id);
+        const data = await bookingService.getBookingById(id);
+        console.log("Booking details response:", data);
 
-        setBooking(response.data);
+        setBooking(data);
         setLoading(false);
       } catch (err) {
-        setError("Failed to fetch booking details. Please try again later.");
-        setLoading(false);
         console.error("Error fetching booking details:", err);
+        setError("Failed to fetch booking details. Please try again later.");
+        toast.error("Failed to fetch booking details");
+        setLoading(false);
       }
     };
 
@@ -40,35 +41,35 @@ const BookingDetails = () => {
   }, [id]);
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+
     const options = {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
     };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+
+    try {
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    } catch (err) {
+      console.error("Date formatting error:", err);
+      return dateString;
+    }
   };
 
   const calculateNights = (checkIn, checkOut) => {
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const diffTime = Math.abs(checkOutDate - checkInDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+    if (!checkIn || !checkOut) return 0;
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "confirmed":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      case "completed":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    try {
+      const checkInDate = new Date(checkIn);
+      const checkOutDate = new Date(checkOut);
+      const diffTime = Math.abs(checkOutDate - checkInDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (err) {
+      console.error("Error calculating nights:", err);
+      return 0;
     }
   };
 
@@ -78,27 +79,30 @@ const BookingDetails = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
-
-      await axios.patch(
-        `http://localhost:5000/api/bookings/${id}/cancel`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await bookingService.cancelBooking(id);
+      console.log("Cancel booking response:", response);
 
       // Update the local state
       setBooking({
         ...booking,
         status: "cancelled",
       });
+
+      toast.success("Booking cancelled successfully");
     } catch (err) {
-      setError("Failed to cancel booking. Please try again.");
       console.error("Error cancelling booking:", err);
+      setError("Failed to cancel booking. Please try again.");
+      toast.error("Failed to cancel booking");
     }
+  };
+
+  // Get room image with proper error handling
+  const getRoomImage = (room) => {
+    if (!room || !room.images || !room.images.length) {
+      return null;
+    }
+
+    return getFullImageUrl(room.images[0]);
   };
 
   if (loading) {
@@ -152,8 +156,11 @@ const BookingDetails = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Booking Details</h1>
-        <Link to="/bookings" className="text-blue-600 hover:text-blue-800">
-          &larr; Back to Bookings
+        <Link
+          to="/bookings"
+          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl"
+        >
+          Back to Bookings
         </Link>
       </div>
 
@@ -161,15 +168,17 @@ const BookingDetails = () => {
         <div className="bg-gray-100 p-4 border-b">
           <div className="flex flex-wrap justify-between items-center">
             <h2 className="text-xl font-bold">
-              Booking #{booking._id.substring(0, 8)}
+              Booking #{booking._id ? booking._id.substring(0, 8) : "N/A"}
             </h2>
             <span
               className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusClass(
                 booking.status
               )}`}
             >
-              {booking.status?.charAt(0).toUpperCase() +
-                booking.status?.slice(1) || "Unknown"}
+              {booking.status
+                ? booking.status.charAt(0).toUpperCase() +
+                  booking.status.slice(1)
+                : "Unknown"}
             </span>
           </div>
         </div>
@@ -214,7 +223,10 @@ const BookingDetails = () => {
                 <div>
                   <p className="text-sm text-gray-500">Total Price</p>
                   <p className="text-xl font-bold">
-                    ${booking.totalPrice.toFixed(2)}
+                    $
+                    {booking.totalPrice
+                      ? booking.totalPrice.toFixed(2)
+                      : "0.00"}
                   </p>
                 </div>
 
@@ -235,11 +247,14 @@ const BookingDetails = () => {
               {booking.room ? (
                 <div className="space-y-3">
                   <div className="h-48 bg-gray-200 rounded-lg mb-4 overflow-hidden">
-                    {booking.room.images && booking.room.images.length > 0 ? (
+                    {getRoomImage(booking.room) ? (
                       <img
-                        src={booking.room.images[0]}
+                        src={getRoomImage(booking.room)}
                         alt={`Room ${booking.room.roomNumber}`}
                         className="w-full h-full object-cover"
+                        onError={(e) =>
+                          handleImageError(e, `Room ${booking.room.roomNumber}`)
+                        }
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -252,23 +267,27 @@ const BookingDetails = () => {
 
                   <div>
                     <p className="text-sm text-gray-500">Room Number</p>
-                    <p className="font-medium">{booking.room.roomNumber}</p>
+                    <p className="font-medium">
+                      {booking.room.roomNumber || "N/A"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-gray-500">Room Type</p>
-                    <p className="font-medium">{booking.room.type}</p>
+                    <p className="font-medium">
+                      {booking.room.type || "Standard"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-gray-500">Floor</p>
-                    <p className="font-medium">{booking.room.floor}</p>
+                    <p className="font-medium">{booking.room.floor || "N/A"}</p>
                   </div>
 
                   <div>
                     <p className="text-sm text-gray-500">Price per Night</p>
                     <p className="font-medium">
-                      ${booking.room.pricePerNight}/night
+                      ${booking.room.pricePerNight || 0}/night
                     </p>
                   </div>
 
@@ -276,6 +295,7 @@ const BookingDetails = () => {
                     <p className="text-sm text-gray-500">Amenities</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {booking.room.amenities &&
+                      booking.room.amenities.length > 0 ? (
                         booking.room.amenities.map((amenity, index) => (
                           <span
                             key={index}
@@ -283,7 +303,12 @@ const BookingDetails = () => {
                           >
                             {amenity}
                           </span>
-                        ))}
+                        ))
+                      ) : (
+                        <span className="text-gray-500">
+                          No amenities listed
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -299,7 +324,9 @@ const BookingDetails = () => {
             <div>
               <p className="text-sm text-gray-500">Booking Created</p>
               <p className="font-medium">
-                {new Date(booking.createdAt).toLocaleString()}
+                {booking.createdAt
+                  ? new Date(booking.createdAt).toLocaleString()
+                  : "N/A"}
               </p>
             </div>
 

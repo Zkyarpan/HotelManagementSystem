@@ -1,207 +1,173 @@
-import React, { useContext } from "react";
-import { Link } from "react-router-dom";
-import { AuthContext } from "./context/AuthContext";
+import React from "react";
+import {
+  Hotel,
+  Calendar,
+  Users,
+  BarChart3,
+  Coffee,
+  Wifi,
+  Car,
+  Bath,
+  Check,
+} from "lucide-react";
 
 const Home = () => {
-  const { auth } = useContext(AuthContext);
+  const features = [
+    {
+      icon: Calendar,
+      title: "Smart Booking Management",
+      description: "Streamline reservations with our intuitive booking system.",
+      image:
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&q=80&w=2070",
+    },
+    {
+      icon: Users,
+      title: "Guest Experience Optimization",
+      description: "Personalize services with comprehensive guest profiles.",
+      image:
+        "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&q=80&w=2070",
+    },
+    {
+      icon: BarChart3,
+      title: "Advanced Analytics",
+      description: "Make data-driven decisions with powerful reporting tools.",
+      image:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070",
+    },
+    {
+      icon: Hotel,
+      title: "Property Management",
+      description: "Comprehensive control of your entire hotel ecosystem.",
+      image:
+        "https://images.unsplash.com/photo-1564501049412-61c2a3083791?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    },
+  ];
+
+  const amenities = [
+    {
+      icon: Coffee,
+      title: "Restaurant Management",
+      description: "Effortlessly handle dining services and inventory.",
+    },
+    {
+      icon: Wifi,
+      title: "Connectivity Solutions",
+      description: "Seamless internet access management for guests.",
+    },
+    {
+      icon: Car,
+      title: "Parking & Valet",
+      description: "Efficient parking operations at your fingertips.",
+    },
+    {
+      icon: Bath,
+      title: "Housekeeping Optimization",
+      description: "Streamline cleaning and maintenance workflows.",
+    },
+  ];
 
   return (
     <div className="bg-white">
       {/* Hero Section */}
-      <div className="relative bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative z-10 pb-8 bg-white sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
-            <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
-              <div className="sm:text-center lg:text-left">
-                <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block xl:inline">Hotel Management</span>{" "}
-                  <span className="block text-blue-600 xl:inline">System</span>
-                </h1>
-                <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  A complete solution for managing your hotel operations.
-                  Streamline bookings, manage rooms, and provide excellent
-                  service to your guests.
-                </p>
-                <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
-                  {auth.isAuthenticated ? (
-                    <div className="rounded-md shadow">
-                      <Link
-                        to="/dashboard"
-                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
-                      >
-                        Go to Dashboard
-                      </Link>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="rounded-md shadow">
-                        <Link
-                          to="/login"
-                          className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
-                        >
-                          Login
-                        </Link>
-                      </div>
-                      <div className="mt-3 sm:mt-0 sm:ml-3">
-                        <Link
-                          to="/register"
-                          className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 md:py-4 md:text-lg md:px-10"
-                        >
-                          Register
-                        </Link>
-                      </div>
-                    </>
-                  )}
+      <div className="relative bg-gradient-to-br from-blue-600 to-indigo-700">
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 flex items-center">
+          <div className="w-1/2 pr-12">
+            <h1 className="text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl mb-6">
+              Elevate Your Hotel Management
+            </h1>
+            <p className="mt-4 text-xl text-blue-100 mb-10">
+              Comprehensive solution to transform your hotel operations, enhance
+              guest experiences, and drive operational efficiency with
+              cutting-edge technology.
+            </p>
+            <div className="flex space-x-4">
+              <a
+                href="#features"
+                className="bg-white text-blue-700 hover:bg-blue-50 px-8 py-3 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1"
+              >
+                Explore Features
+              </a>
+            </div>
+          </div>
+
+          <div className="w-1/2 grid grid-cols-2 gap-4">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
+              >
+                <div className="h-40 overflow-hidden">
+                  <img
+                    src={feature.image}
+                    alt={feature.title}
+                    className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center">
+                    <feature.icon className="h-5 w-5 text-blue-600 mr-2" />
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      {feature.title}
+                    </h3>
+                  </div>
                 </div>
               </div>
-            </main>
-          </div>
-        </div>
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
-          <div className="h-56 w-full bg-gray-100 sm:h-72 md:h-96 lg:w-full lg:h-full p-4">
-            <div className="grid grid-cols-2 gap-4 h-full">
-              <div className="bg-blue-500 rounded-lg shadow-lg"></div>
-              <div className="bg-green-500 rounded-lg shadow-lg"></div>
-              <div className="bg-yellow-500 rounded-lg shadow-lg"></div>
-              <div className="bg-purple-500 rounded-lg shadow-lg"></div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Feature Section */}
-      <div className="py-12 bg-white">
+      {/* Amenities Section */}
+      <div id="features" className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="lg:text-center">
-            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">
-              Features
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+              Comprehensive Amenity Management
             </h2>
-            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-              A better way to manage your hotel
-            </p>
-            <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
-              Our HMS provides everything you need to run your hotel
-              efficiently.
+            <p className="mt-4 text-xl text-gray-600">
+              Handle every aspect of your hotel with precision and ease
             </p>
           </div>
 
-          <div className="mt-10">
-            <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-10">
-              {/* Feature 1 */}
-              <div className="relative">
-                <div className="absolute flex h-12 w-12 items-center justify-center rounded-md bg-blue-500 text-white">
-                  <svg
-                    className="h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    />
-                  </svg>
+          <div className="grid md:grid-cols-2 gap-8">
+            {amenities.map((amenity, index) => (
+              <div
+                key={index}
+                className="flex items-start bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition duration-300"
+              >
+                <div className="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full p-3 mr-4">
+                  <amenity.icon className="h-6 w-6" />
                 </div>
-                <div className="ml-16">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Room Management
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {amenity.title}
                   </h3>
-                  <p className="mt-2 text-base text-gray-500">
-                    Easily manage all your rooms, their availability, and
-                    maintenance status.
-                  </p>
+                  <p className="text-gray-600">{amenity.description}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-              {/* Feature 2 */}
-              <div className="relative">
-                <div className="absolute flex h-12 w-12 items-center justify-center rounded-md bg-blue-500 text-white">
-                  <svg
-                    className="h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-16">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Booking System
-                  </h3>
-                  <p className="mt-2 text-base text-gray-500">
-                    Streamline the booking process with our intuitive booking
-                    management system.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 3 */}
-              <div className="relative">
-                <div className="absolute flex h-12 w-12 items-center justify-center rounded-md bg-blue-500 text-white">
-                  <svg
-                    className="h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-16">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Guest Management
-                  </h3>
-                  <p className="mt-2 text-base text-gray-500">
-                    Keep track of guest information and preferences for
-                    personalized service.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 4 */}
-              <div className="relative">
-                <div className="absolute flex h-12 w-12 items-center justify-center rounded-md bg-blue-500 text-white">
-                  <svg
-                    className="h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-16">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Reporting & Analytics
-                  </h3>
-                  <p className="mt-2 text-base text-gray-500">
-                    Get valuable insights with a comprehensive reporting and
-                    analytics dashboard.
-                  </p>
-                </div>
-              </div>
+      {/* Call to Action */}
+      <div className="bg-blue-600 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-extrabold text-white sm:text-4xl mb-6">
+            Ready to Transform Your Hotel Management?
+          </h2>
+          <p className="mt-4 text-xl text-blue-100 mb-8">
+            Start your journey towards operational excellence and enhanced guest
+            experiences
+          </p>
+          <div className="flex justify-center space-x-4">
+            <div className="flex items-center bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold shadow-md">
+              <Check className="h-5 w-5 mr-2" />
+              Efficient Operations
+            </div>
+            <div className="flex items-center bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold shadow-md">
+              <Check className="h-5 w-5 mr-2" />
+              Enhanced Guest Satisfaction
             </div>
           </div>
         </div>

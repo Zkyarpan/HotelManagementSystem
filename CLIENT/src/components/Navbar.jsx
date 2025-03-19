@@ -176,7 +176,7 @@ const Navbar = () => {
                 </span>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-3 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Sign out
                 </button>
@@ -191,7 +191,7 @@ const Navbar = () => {
                 </Link>
                 <Link
                   to="/register"
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-5 py-3 border border-transparent font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm"
                 >
                   Register
                 </Link>
@@ -287,7 +287,7 @@ const Navbar = () => {
                   className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  ← User Dashboard
+                  User Dashboard
                 </Link>
               </>
             ) : (
@@ -348,7 +348,7 @@ const Navbar = () => {
                         className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-purple-600 hover:bg-purple-50 hover:border-purple-300"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        Admin Area →
+                        Admin Area
                       </Link>
                     )}
                   </>
@@ -388,7 +388,7 @@ const Navbar = () => {
                       handleLogout();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    className="block w-full text-left px-5 py-3 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                   >
                     Sign out
                   </button>

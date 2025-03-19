@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../components/utils/api";
 
 export const AuthContext = createContext({
@@ -41,8 +42,8 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         console.log("No token found, user not authenticated");
         setAuth({
-          isAuthenticated: true,
-          user: res.data.user, 
+          isAuthenticated: false,
+          user: null,
           loading: false,
         });
         return;
@@ -162,38 +163,31 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  // For testing authentication
-  const testAuth = async () => {
-    try {
-      console.log("Testing authentication");
-      const token = localStorage.getItem("token");
-      console.log("Current token in storage:", token ? "Present" : "None");
-      console.log("Current auth state:", auth);
-
-      // Test if token is valid
-      if (token) {
-        const res = await api.get("/api/auth/test");
-        console.log("Auth test response:", res.data);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("Auth test failed:", err);
-      return false;
-    }
-  };
-
   const contextValue = {
     auth,
     login,
     register,
     logout,
-    testAuth,
   };
 
   return (
     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
+};
+
+// Custom hook for protected routes
+export const useProtectedRoute = () => {
+  const { auth } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // If not loading and not authenticated, redirect to login
+    if (!auth.loading && !auth.isAuthenticated) {
+      navigate("/login");
+    }
+  }, [auth.loading, auth.isAuthenticated, navigate]);
+
+  return auth;
 };
 
 export default AuthProvider;

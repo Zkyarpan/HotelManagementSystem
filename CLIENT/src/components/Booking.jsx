@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { roomService, bookingService } from "../components/utils/api";
+import { toast } from "sonner";
+import {
+  getRoomImage,
+  handleImageError,
+} from "../components/utils/utils";
 
 const Booking = () => {
   const { roomId } = useParams();
@@ -25,23 +30,21 @@ const Booking = () => {
     const fetchRoom = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token");
+        const response = await roomService.getRoomById(roomId);
+        console.log("Room data:", response); // Log for debugging
 
-        const response = await axios.get(
-          `http://localhost:5000/api/rooms/${roomId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        if (!response) {
+          throw new Error("No room data received");
+        }
 
-        setRoom(response.data);
+        setRoom(response);
+        setGuests(1); // Default to 1 guest
         setLoading(false);
       } catch (err) {
-        setError("Failed to fetch room details. Please try again later.");
-        setLoading(false);
         console.error("Error fetching room:", err);
+        setError("Failed to fetch room details. Please try again later.");
+        toast.error("Failed to fetch room details");
+        setLoading(false);
       }
     };
 
@@ -68,41 +71,48 @@ const Booking = () => {
 
     if (!roomId || !checkInDate || !checkOutDate || !guests) {
       setError("Please provide all required booking information.");
+      toast.error("Please provide all required booking information");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem("token");
+
+      // Format dates properly for the API
+      const formattedCheckInDate = checkInDate.toISOString();
+      const formattedCheckOutDate = checkOutDate.toISOString();
 
       const bookingData = {
         roomId,
-        checkInDate,
-        checkOutDate,
+        checkInDate: formattedCheckInDate,
+        checkOutDate: formattedCheckOutDate,
         guests,
         specialRequests,
         totalPrice: calculateTotalPrice(),
       };
 
-      await axios.post("http://localhost:5000/api/bookings", bookingData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      console.log("Sending booking data:", bookingData); // Log for debugging
 
+      const response = await bookingService.createBooking(bookingData);
+      console.log("Booking response:", response); // Log for debugging
+
+      toast.success("Booking successful!");
       setBookingSuccess(true);
+
       // Reset form
       setSpecialRequests("");
+
       // Auto redirect after success
       setTimeout(() => {
         navigate("/bookings");
       }, 3000);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to create booking. Please try again."
-      );
       console.error("Error creating booking:", err);
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to create booking. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -153,6 +163,8 @@ const Booking = () => {
     );
   }
 
+  const roomImageUrl = getRoomImage(room);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Book Room</h1>
@@ -162,11 +174,14 @@ const Booking = () => {
           {/* Room Details */}
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <div className="h-64 bg-gray-300 relative">
-              {room.images && room.images.length > 0 ? (
+              {roomImageUrl ? (
                 <img
-                  src={room.images[0]}
+                  src={roomImageUrl}
                   alt={`Room ${room.roomNumber}`}
                   className="w-full h-full object-cover"
+                  onError={(e) =>
+                    handleImageError(e, `Room ${room.roomNumber}`)
+                  }
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -179,23 +194,25 @@ const Booking = () => {
               <h2 className="text-2xl font-bold mb-2">
                 Room {room.roomNumber}
               </h2>
-              <p className="text-gray-600 mb-4">{room.description}</p>
+              <p className="text-gray-600 mb-4">
+                {room.description || "No description available"}
+              </p>
 
               <div className="mb-4">
                 <p className="font-semibold">Room Details:</p>
-                <p>Type: {room.type}</p>
+                <p>Type: {room.type || "Standard"}</p>
                 <p>
-                  Capacity: {room.capacity}{" "}
+                  Capacity: {room.capacity || 1}{" "}
                   {room.capacity === 1 ? "person" : "people"}
                 </p>
                 <p>Price: ${room.pricePerNight}/night</p>
-                <p>Floor: {room.floor}</p>
+                <p>Floor: {room.floor || "Not specified"}</p>
               </div>
 
               <div>
                 <p className="font-semibold">Amenities:</p>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {room.amenities &&
+                  {room.amenities && room.amenities.length > 0 ? (
                     room.amenities.map((amenity, index) => (
                       <span
                         key={index}
@@ -203,7 +220,10 @@ const Booking = () => {
                       >
                         {amenity}
                       </span>
-                    ))}
+                    ))
+                  ) : (
+                    <span className="text-gray-500">No amenities listed</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -265,7 +285,7 @@ const Booking = () => {
                   className="w-full p-2 border border-gray-300 rounded-md"
                   required
                 >
-                  {[...Array(room.capacity)].map((_, index) => (
+                  {[...Array(room.capacity || 1)].map((_, index) => (
                     <option key={index + 1} value={index + 1}>
                       {index + 1} {index === 0 ? "Guest" : "Guests"}
                     </option>

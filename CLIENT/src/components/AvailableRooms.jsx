@@ -1,19 +1,16 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { roomService } from "../components/utils/api";
-import { getFullImageUrl, handleImageError } from "../components/utils/utils";
-import { toast } from "sonner";
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
 
-const Room = () => {
+const AvailableRooms = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [filters, setFilters] = useState({
-    type: "",
-    minPrice: "",
-    maxPrice: "",
-    capacity: "",
-    isAvailable: true, // Add this filter to only show available rooms
+    type: '',
+    minPrice: '',
+    maxPrice: '',
+    capacity: ''
   });
 
   useEffect(() => {
@@ -23,36 +20,45 @@ const Room = () => {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-
-      // Always include isAvailable=true in the filters
-      const queryFilters = {
-        ...filters,
-        isAvailable: true,
-      };
-
-      const response = await roomService.getAllRooms(queryFilters);
-      console.log("Rooms response:", response);
-
-      if (response && response.data) {
-        setRooms(response.data);
+      const token = localStorage.getItem('token');
+      
+      // Construct query parameters based on filters
+      const queryParams = new URLSearchParams();
+      if (filters.type) queryParams.append('type', filters.type);
+      if (filters.minPrice) queryParams.append('minPrice', filters.minPrice);
+      if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice);
+      if (filters.capacity) queryParams.append('capacity', filters.capacity);
+      
+      // Only show available rooms
+      queryParams.append('isAvailable', true);
+      
+      const url = `http://localhost:5000/api/rooms?${queryParams.toString()}`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && response.data.data) {
+        setRooms(response.data.data);
       } else {
         setRooms([]);
       }
-
+      
       setLoading(false);
     } catch (err) {
-      console.error("Error fetching rooms:", err);
-      setError("Failed to fetch rooms. Please try again later.");
-      toast.error("Failed to fetch rooms");
+      setError('Failed to fetch rooms. Please try again later.');
       setLoading(false);
+      console.error('Error fetching rooms:', err);
     }
   };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
+    setFilters(prev => ({
       ...prev,
-      [name]: value,
+      [name]: value
     }));
   };
 
@@ -63,13 +69,12 @@ const Room = () => {
 
   const clearFilters = () => {
     setFilters({
-      type: "",
-      minPrice: "",
-      maxPrice: "",
-      capacity: "",
-      isAvailable: true, // Maintain this filter even when clearing others
+      type: '',
+      minPrice: '',
+      maxPrice: '',
+      capacity: ''
     });
-
+    
     // Use setTimeout to ensure state is updated before fetching
     setTimeout(() => {
       fetchRooms();
@@ -77,27 +82,28 @@ const Room = () => {
   };
 
   const getRoomImage = (room) => {
-    if (!room || !room.images || !room.images.length) {
-      return null;
+    if (room.images && room.images.length > 0) {
+      // If image path is relative, prepend API base URL
+      const imagePath = room.images[0];
+      return imagePath.startsWith('http') 
+        ? imagePath 
+        : `http://localhost:5000${imagePath}`;
     }
-
-    return getFullImageUrl(room.images[0]);
+    return null;
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Available Rooms</h1>
-
+      
       {/* Filter Section */}
       <div className="bg-white shadow-md rounded-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">Filter Rooms</h2>
-
+        
         <form onSubmit={applyFilters}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Room Type
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
               <select
                 name="type"
                 value={filters.type}
@@ -111,11 +117,9 @@ const Room = () => {
                 <option value="Deluxe">Deluxe</option>
               </select>
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Price
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Min Price</label>
               <input
                 type="number"
                 name="minPrice"
@@ -125,11 +129,9 @@ const Room = () => {
                 className="w-full p-2 border border-gray-300 rounded-md"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Price
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max Price</label>
               <input
                 type="number"
                 name="maxPrice"
@@ -139,11 +141,9 @@ const Room = () => {
                 className="w-full p-2 border border-gray-300 rounded-md"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Capacity
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
               <select
                 name="capacity"
                 value={filters.capacity}
@@ -158,7 +158,7 @@ const Room = () => {
               </select>
             </div>
           </div>
-
+          
           <div className="flex mt-4 space-x-4">
             <button
               type="submit"
@@ -166,7 +166,7 @@ const Room = () => {
             >
               Apply Filters
             </button>
-
+            
             <button
               type="button"
               onClick={clearFilters}
@@ -177,7 +177,7 @@ const Room = () => {
           </div>
         </form>
       </div>
-
+      
       {/* Display loading, error, or no results message */}
       {loading ? (
         <div className="text-center py-8">
@@ -185,17 +185,12 @@ const Room = () => {
           <p className="mt-2">Loading rooms...</p>
         </div>
       ) : error ? (
-        <div
-          className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4"
-          role="alert"
-        >
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
           <p>{error}</p>
         </div>
       ) : rooms.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-gray-500 mb-4">
-            No rooms found matching your criteria.
-          </p>
+          <p className="text-gray-500 mb-4">No rooms found matching your criteria.</p>
           <button
             onClick={clearFilters}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
@@ -207,19 +202,13 @@ const Room = () => {
         /* Display rooms grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => (
-            <div
-              key={room._id}
-              className="bg-white shadow-md rounded-lg overflow-hidden border"
-            >
+            <div key={room._id} className="bg-white shadow-md rounded-lg overflow-hidden border">
               <div className="h-48 bg-gray-300 relative">
                 {getRoomImage(room) ? (
                   <img
                     src={getRoomImage(room)}
                     alt={`Room ${room.roomNumber}`}
                     className="w-full h-full object-cover"
-                    onError={(e) =>
-                      handleImageError(e, `Room ${room.roomNumber}`)
-                    }
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -227,15 +216,11 @@ const Room = () => {
                   </div>
                 )}
               </div>
-
+              
               <div className="p-4">
-                <h2 className="text-xl font-bold mb-2">
-                  Room {room.roomNumber}
-                </h2>
-                <p className="text-gray-600 mb-2 line-clamp-2">
-                  {room.description || "No description available."}
-                </p>
-
+                <h2 className="text-xl font-bold mb-2">Room {room.roomNumber}</h2>
+                <p className="text-gray-600 mb-2 line-clamp-2">{room.description || "No description available."}</p>
+                
                 <div className="mb-3">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Type:</span>
@@ -243,10 +228,7 @@ const Room = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Capacity:</span>
-                    <span className="font-medium">
-                      {room.capacity}{" "}
-                      {room.capacity === 1 ? "person" : "people"}
-                    </span>
+                    <span className="font-medium">{room.capacity} {room.capacity === 1 ? 'person' : 'people'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Floor:</span>
@@ -254,12 +236,10 @@ const Room = () => {
                   </div>
                   <div className="flex justify-between items-center font-bold text-lg mt-2">
                     <span>Price:</span>
-                    <span className="text-blue-600">
-                      ${room.pricePerNight}/night
-                    </span>
+                    <span className="text-blue-600">${room.pricePerNight}/night</span>
                   </div>
                 </div>
-
+                
                 {room.amenities && room.amenities.length > 0 && (
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-1">Amenities:</p>
@@ -275,8 +255,8 @@ const Room = () => {
                     </div>
                   </div>
                 )}
-
-                <Link to={`/booking/${room._id}`}>
+                
+                <Link to={`/book/${room._id}`}>
                   <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     Book Now
                   </button>
@@ -290,4 +270,4 @@ const Room = () => {
   );
 };
 
-export default Room;
+export default AvailableRooms;

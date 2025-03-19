@@ -8,6 +8,11 @@ const Room = require("../models/Room");
  */
 exports.getBookings = async (req, res) => {
   try {
+    // If admin=true query parameter is present, redirect to getAllBookings
+    if (req.query.admin === "true") {
+      return this.getAllBookings(req, res);
+    }
+
     let query;
 
     // Copy req.query
@@ -32,7 +37,7 @@ exports.getBookings = async (req, res) => {
     query = Booking.find(JSON.parse(queryStr))
       .populate({
         path: "room",
-        select: "roomNumber type pricePerNight",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .populate({
         path: "user",
@@ -99,7 +104,7 @@ exports.getBooking = async (req, res) => {
     const booking = await Booking.findById(req.params.id)
       .populate({
         path: "room",
-        select: "roomNumber type pricePerNight amenities",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .populate({
         path: "user",
@@ -154,6 +159,35 @@ exports.createBooking = async (req, res) => {
         .json({ message: "Room is not available for booking" });
     }
 
+    // Check if room is already booked for the requested dates
+    const conflictingBooking = await Booking.findOne({
+      room: req.body.roomId,
+      status: { $in: ["confirmed", "pending"] }, // Only check active bookings
+      $or: [
+        // New booking starts during an existing booking
+        {
+          checkInDate: { $lte: new Date(req.body.checkInDate) },
+          checkOutDate: { $gt: new Date(req.body.checkInDate) },
+        },
+        // New booking ends during an existing booking
+        {
+          checkInDate: { $lt: new Date(req.body.checkOutDate) },
+          checkOutDate: { $gte: new Date(req.body.checkOutDate) },
+        },
+        // New booking contains an existing booking
+        {
+          checkInDate: { $gte: new Date(req.body.checkInDate) },
+          checkOutDate: { $lte: new Date(req.body.checkOutDate) },
+        },
+      ],
+    });
+
+    if (conflictingBooking) {
+      return res
+        .status(400)
+        .json({ message: "Room is already booked for the selected dates" });
+    }
+
     // Format the booking data
     const bookingData = {
       user: req.user.id,
@@ -169,7 +203,31 @@ exports.createBooking = async (req, res) => {
     // Create booking
     const booking = await Booking.create(bookingData);
 
-    res.status(201).json(booking);
+    // Update room availability if booking dates include today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkIn = new Date(req.body.checkInDate);
+    checkIn.setHours(0, 0, 0, 0);
+    const checkOut = new Date(req.body.checkOutDate);
+    checkOut.setHours(0, 0, 0, 0);
+
+    if (checkIn <= today && checkOut > today) {
+      // If the booking period includes today, mark room as unavailable
+      await Room.findByIdAndUpdate(req.body.roomId, { isAvailable: false });
+    }
+
+    // Return the booking with populated room and user data
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate({
+        path: "room",
+        select: "roomNumber type pricePerNight floor images amenities",
+      })
+      .populate({
+        path: "user",
+        select: "name email",
+      });
+
+    res.status(201).json(populatedBooking);
   } catch (err) {
     console.error("Error creating booking:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -204,7 +262,7 @@ exports.updateBooking = async (req, res) => {
     })
       .populate({
         path: "room",
-        select: "roomNumber type",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .populate({
         path: "user",
@@ -240,6 +298,9 @@ exports.deleteBooking = async (req, res) => {
         .json({ message: "Only admins can delete bookings" });
     }
 
+    // Update room availability
+    await Room.findByIdAndUpdate(booking.room, { isAvailable: true });
+
     await booking.deleteOne();
 
     res.status(200).json({ message: "Booking deleted successfully" });
@@ -265,11 +326,9 @@ exports.updateBookingStatus = async (req, res) => {
     // Validate status
     const validStatuses = ["pending", "confirmed", "cancelled", "completed"];
     if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({
-          message: `Status must be one of: ${validStatuses.join(", ")}`,
-        });
+      return res.status(400).json({
+        message: `Status must be one of: ${validStatuses.join(", ")}`,
+      });
     }
 
     let booking = await Booking.findById(req.params.id);
@@ -280,6 +339,28 @@ exports.updateBookingStatus = async (req, res) => {
         .json({ message: `Booking not found with id of ${req.params.id}` });
     }
 
+    // If status is changing to cancelled or completed, potentially update room availability
+    if (
+      (status === "cancelled" || status === "completed") &&
+      (booking.status === "confirmed" || booking.status === "pending")
+    ) {
+      await Room.findByIdAndUpdate(booking.room, { isAvailable: true });
+    }
+
+    // If status is changing to confirmed, potentially update room availability
+    if (status === "confirmed" && booking.status !== "confirmed") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const checkIn = new Date(booking.checkInDate);
+      checkIn.setHours(0, 0, 0, 0);
+      const checkOut = new Date(booking.checkOutDate);
+      checkOut.setHours(0, 0, 0, 0);
+
+      if (checkIn <= today && checkOut > today) {
+        await Room.findByIdAndUpdate(booking.room, { isAvailable: false });
+      }
+    }
+
     booking = await Booking.findByIdAndUpdate(
       req.params.id,
       { status, updatedAt: Date.now() },
@@ -287,7 +368,7 @@ exports.updateBookingStatus = async (req, res) => {
     )
       .populate({
         path: "room",
-        select: "roomNumber type",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .populate({
         path: "user",
@@ -311,7 +392,7 @@ exports.getUserBookings = async (req, res) => {
     const bookings = await Booking.find({ user: req.user.id })
       .populate({
         path: "room",
-        select: "roomNumber type pricePerNight",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .sort("-createdAt");
 
@@ -332,7 +413,7 @@ exports.getAllBookings = async (req, res) => {
     const bookings = await Booking.find()
       .populate({
         path: "room",
-        select: "roomNumber type",
+        select: "roomNumber type pricePerNight floor images amenities",
       })
       .populate({
         path: "user",
@@ -343,6 +424,51 @@ exports.getAllBookings = async (req, res) => {
     res.status(200).json(bookings);
   } catch (err) {
     console.error("Error fetching all bookings:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+/**
+ * @desc    Cancel a booking
+ * @route   PATCH /api/bookings/:id/cancel
+ * @access  Private
+ */
+exports.cancelBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        message: `Booking not found with id of ${req.params.id}`,
+      });
+    }
+
+    // Make sure user owns booking or is admin
+    if (booking.user.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Not authorized to cancel this booking",
+      });
+    }
+
+    // Update booking status
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: "cancelled",
+        updatedAt: Date.now(),
+      },
+      { new: true, runValidators: true }
+    ).populate({
+      path: "room",
+      select: "roomNumber type pricePerNight floor images amenities",
+    });
+
+    // Update room availability
+    await Room.findByIdAndUpdate(booking.room, { isAvailable: true });
+
+    res.status(200).json(updatedBooking);
+  } catch (err) {
+    console.error("Error cancelling booking:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
