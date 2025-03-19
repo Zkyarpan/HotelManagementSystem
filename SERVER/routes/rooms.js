@@ -1,165 +1,97 @@
-// server/routes/rooms.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const passport = require('passport');
-const Room = require('../models/Room');
+const passport = require("passport");
 
-// Middleware for admin access
+// Admin access middleware
 const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && req.user.role === "admin") {
     return next();
   }
-  return res.status(403).json({ message: 'Access denied: Admin role required' });
+  return res
+    .status(403)
+    .json({ message: "Access denied: Admin role required" });
 };
 
-// Get all rooms (public route)
-router.get('/', async (req, res) => {
-  try {
-    const rooms = await Room.find({ isAvailable: true });
-    res.json(rooms);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Import controllers
+const roomController = require("../controllers/roomController");
 
-// Get a specific room (public route)
-router.get('/:id', async (req, res) => {
-  try {
-    const room = await Room.findById(req.params.id);
-    
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-    
-    res.json(room);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Important: Route order matters! More specific routes should come before generic ones
 
-// Admin Routes (protected)
+// Admin only routes - Note these come BEFORE the /:id route to prevent conflicts
+router.get(
+  "/admin/all", // Changed from /all to /admin/all to avoid route conflicts
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.getAdminRooms
+);
 
-// Get all rooms (including unavailable ones) - Admin only
-router.get('/admin/all', passport.authenticate('jwt', { session: false }), isAdmin, async (req, res) => {
-  try {
-    const rooms = await Room.find();
-    res.json(rooms);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Public routes - available to all users
+router.get("/", roomController.getRooms);
+router.get("/all-available", roomController.getRooms); // Alias for frontend
 
-// Create a new room - Admin only
-router.post('/', passport.authenticate('jwt', { session: false }), isAdmin, async (req, res) => {
-  try {
-    const {
-      roomNumber,
-      type,
-      capacity,
-      pricePerNight,
-      amenities,
-      images,
-      isAvailable,
-      description,
-      floor,
-      status
-    } = req.body;
-    
-    // Check if room number already exists
-    const roomExists = await Room.findOne({ roomNumber });
-    if (roomExists) {
-      return res.status(400).json({ message: 'Room number already exists' });
-    }
-    
-    const newRoom = new Room({
-      roomNumber,
-      type,
-      capacity,
-      pricePerNight,
-      amenities,
-      images,
-      isAvailable,
-      description,
-      floor,
-      status
-    });
-    
-    const savedRoom = await newRoom.save();
-    res.status(201).json(savedRoom);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Status update route - more specific than the generic /:id route
+router.patch(
+  "/:id/status",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  (req, res) => {
+    // Specific route for status updates
+    const { status } = req.body;
 
-// Update a room - Admin only
-router.put('/:id', passport.authenticate('jwt', { session: false }), isAdmin, async (req, res) => {
-  try {
-    const {
-      roomNumber,
-      type,
-      capacity,
-      pricePerNight,
-      amenities,
-      images,
-      isAvailable,
-      description,
-      floor,
-      status
-    } = req.body;
-    
-    // If updating room number, check if it already exists
-    if (roomNumber) {
-      const roomExists = await Room.findOne({ 
-        roomNumber, 
-        _id: { $ne: req.params.id } 
+    // Validate status
+    const validStatuses = ["Ready", "Occupied", "Cleaning", "Maintenance"];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status. Must be one of: " + validStatuses.join(", "),
       });
-      
-      if (roomExists) {
-        return res.status(400).json({ message: 'Room number already exists' });
-      }
     }
-    
-    const updatedRoom = await Room.findByIdAndUpdate(
-      req.params.id,
-      {
-        roomNumber,
-        type,
-        capacity,
-        pricePerNight,
-        amenities,
-        images,
-        isAvailable,
-        description,
-        floor,
-        status,
-        updated: Date.now()
-      },
-      { new: true, runValidators: true }
-    );
-    
-    if (!updatedRoom) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-    
-    res.json(updatedRoom);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 
-// Delete a room - Admin only
-router.delete('/:id', passport.authenticate('jwt', { session: false }), isAdmin, async (req, res) => {
-  try {
-    const room = await Room.findByIdAndDelete(req.params.id);
-    
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-    
-    res.json({ message: 'Room deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    // Call existing update method with status
+    roomController.updateRoom(req, res);
   }
-});
+);
+
+// Availability update route
+router.patch(
+  "/:id/availability",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.updateRoomAvailability
+);
+
+// Create room with image upload
+router.post(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.uploadRoomImages,
+  roomController.createRoom
+);
+
+// Generic ID routes - these should come AFTER any routes with specific path segments
+router.get("/:id", roomController.getRoom);
+
+router.put(
+  "/:id",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.uploadRoomImages,
+  roomController.updateRoom
+);
+
+router.patch(
+  "/:id",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.uploadRoomImages,
+  roomController.updateRoom
+);
+
+router.delete(
+  "/:id",
+  passport.authenticate("jwt", { session: false }),
+  isAdmin,
+  roomController.deleteRoom
+);
 
 module.exports = router;

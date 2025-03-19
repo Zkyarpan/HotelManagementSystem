@@ -15,19 +15,25 @@ const jwtOptions = {
 // Local strategy for username/password login
 passport.use(
   new LocalStrategy(
-    { usernameField: "email" },
+    {
+      usernameField: "email",
+      passwordField: "password",
+    },
     async (email, password, done) => {
       try {
+        // Find user by email
         const user = await User.findOne({ email });
 
+        // Check if user exists
         if (!user) {
-          return done(null, false, { message: "Incorrect email." });
+          return done(null, false, { message: "User not found" });
         }
 
-        const isValidPassword = await bcrypt.compare(password, user.password);
+        // Compare password with stored hash
+        const isMatch = await bcrypt.compare(password, user.password);
 
-        if (!isValidPassword) {
-          return done(null, false, { message: "Incorrect password." });
+        if (!isMatch) {
+          return done(null, false, { message: "Incorrect password" });
         }
 
         return done(null, user);
@@ -54,20 +60,5 @@ passport.use(
     }
   })
 );
-
-// Serialize user for sessions
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-// Deserialize user for sessions
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
 
 module.exports = passport;
