@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import { roomService, bookingService } from "../utils/api";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -17,86 +18,135 @@ const AdminDashboard = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          throw new Error("No authentication token found");
-        }
-
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        };
-
-        // In a real app, this would be a single API endpoint
-        // Here we'll simulate by making separate calls
-        const roomsResponse = await axios.get("/api/rooms", config);
-        const bookingsResponse = await axios.get("/api/bookings/all", config);
-
-        // Process room data
-        const rooms = Array.isArray(roomsResponse.data)
-          ? roomsResponse.data
-          : [];
-        const availableRooms = rooms.filter((room) => room.isAvailable).length;
-
-        // Process booking data
-        const bookings = Array.isArray(bookingsResponse.data)
-          ? bookingsResponse.data
-          : [];
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todayStr = today.toISOString().split("T")[0];
-
-        const checkIns = bookings.filter(
-          (booking) => booking.checkInDate?.split("T")[0] === todayStr
-        ).length;
-
-        const checkOuts = bookings.filter(
-          (booking) => booking.checkOutDate?.split("T")[0] === todayStr
-        ).length;
-
-        const pendingBookings = bookings.filter(
-          (booking) => booking.status === "pending"
-        ).length;
-
-        const revenue = bookings
-          .filter((booking) => booking.status !== "cancelled")
-          .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
-
-        // Set stats
-        setStats({
-          totalRooms: rooms.length,
-          availableRooms,
-          totalBookings: bookings.length,
-          pendingBookings,
-          todayCheckIns: checkIns,
-          todayCheckOuts: checkOuts,
-          monthlyRevenue: revenue,
-        });
-
-        // Get recent bookings
-        setRecentBookings(bookings.slice(0, 5));
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-        setError("Failed to load dashboard data. Please try again.");
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
   }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      console.log("Fetching dashboard data...");
+
+      // Fetch rooms with better error handling
+      let rooms = [];
+      try {
+        console.log("Fetching rooms...");
+        const roomsResponse = await roomService.getAllRooms();
+        console.log("Rooms response:", roomsResponse);
+
+        if (roomsResponse && roomsResponse.data) {
+          rooms = roomsResponse.data;
+        }
+      } catch (roomError) {
+        console.error("Error fetching rooms:", roomError);
+        toast.error("Failed to fetch rooms data");
+      }
+
+      // Fetch bookings with better error handling
+      let bookings = [];
+      try {
+        console.log("Fetching bookings...");
+
+        // Use the query parameter approach we fixed in the previous conversation
+        const bookingsResponse = await fetch(
+          "http://localhost:5000/api/bookings?admin=true",
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!bookingsResponse.ok) {
+          throw new Error(`API error: ${bookingsResponse.status}`);
+        }
+
+        const bookingsData = await bookingsResponse.json();
+        console.log("Bookings response:", bookingsData);
+
+        if (Array.isArray(bookingsData)) {
+          bookings = bookingsData;
+        } else if (bookingsData && Array.isArray(bookingsData.data)) {
+          bookings = bookingsData.data;
+        }
+      } catch (bookingError) {
+        console.error("Error fetching bookings:", bookingError);
+        toast.error("Failed to fetch bookings data");
+      }
+
+      // Process data for stats
+      const availableRooms = rooms.filter((room) => room.isAvailable).length;
+
+      // Get today's date in the correct format for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split("T")[0];
+
+      // Count check-ins and check-outs for today
+      const checkIns = bookings.filter((booking) => {
+        if (!booking.checkInDate) return false;
+        const bookingDate = new Date(booking.checkInDate)
+          .toISOString()
+          .split("T")[0];
+        return bookingDate === todayStr;
+      }).length;
+
+      const checkOuts = bookings.filter((booking) => {
+        if (!booking.checkOutDate) return false;
+        const bookingDate = new Date(booking.checkOutDate)
+          .toISOString()
+          .split("T")[0];
+        return bookingDate === todayStr;
+      }).length;
+
+      // Count pending bookings
+      const pendingBookings = bookings.filter(
+        (booking) => booking.status === "pending"
+      ).length;
+
+      // Calculate revenue from non-cancelled bookings
+      const revenue = bookings
+        .filter((booking) => booking.status !== "cancelled")
+        .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
+
+      // Set stats
+      setStats({
+        totalRooms: rooms.length,
+        availableRooms,
+        totalBookings: bookings.length,
+        pendingBookings,
+        todayCheckIns: checkIns,
+        todayCheckOuts: checkOuts,
+        monthlyRevenue: revenue,
+      });
+
+      // Get recent bookings (latest 5)
+      const sortedBookings = [...bookings].sort((a, b) => {
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
+      setRecentBookings(sortedBookings.slice(0, 5));
+
+      setLoading(false);
+      console.log("Dashboard data loaded successfully");
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data. Please try again.");
+      toast.error("Failed to load dashboard data");
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const options = { year: "numeric", month: "short", day: "numeric" };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    try {
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    } catch (err) {
+      console.error("Date formatting error:", err);
+      return "N/A";
+    }
   };
 
   const getStatusClass = (status) => {
@@ -114,6 +164,11 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleRefresh = () => {
+    fetchDashboardData();
+    toast.info("Refreshing dashboard data...");
+  };
+
   if (loading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -125,16 +180,44 @@ const AdminDashboard = () => {
 
   return (
     <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-500">
-          Overview of your hotel management system.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-gray-500">
+            Overview of your hotel management system.
+          </p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 flex items-center"
+        >
+          <svg
+            className="w-4 h-4 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            ></path>
+          </svg>
+          Refresh
+        </button>
       </div>
 
       {error && (
         <div className="p-4 bg-red-100 text-red-700 rounded-md">
           <p>{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-2 text-red-700 underline hover:no-underline"
+          >
+            Try again
+          </button>
         </div>
       )}
 
@@ -192,8 +275,10 @@ const AdminDashboard = () => {
             </span>
           </div>
           <p className="text-blue-600 text-sm mt-2">
-            {((stats.availableRooms / stats.totalRooms) * 100 || 0).toFixed(0)}%
-            Occupancy
+            {stats.totalRooms
+              ? ((stats.availableRooms / stats.totalRooms) * 100).toFixed(0)
+              : 0}
+            % Occupancy
           </p>
         </div>
 
@@ -264,7 +349,9 @@ const AdminDashboard = () => {
           <div className="flex justify-between">
             <div>
               <p className="text-gray-500 text-sm">Monthly Revenue</p>
-              <h3 className="text-3xl font-bold">${stats.monthlyRevenue}</h3>
+              <h3 className="text-3xl font-bold">
+                ${stats.monthlyRevenue.toFixed(2)}
+              </h3>
             </div>
             <span className="bg-yellow-100 h-10 w-10 rounded-full flex items-center justify-center">
               <svg
@@ -283,7 +370,7 @@ const AdminDashboard = () => {
               </svg>
             </span>
           </div>
-          <p className="text-gray-500 text-sm mt-2">No payment processing</p>
+          <p className="text-gray-500 text-sm mt-2">From confirmed bookings</p>
         </div>
       </div>
 
@@ -457,7 +544,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${booking.totalPrice || 0}
+                      ${booking.totalPrice?.toFixed(2) || "0.00"}
                     </td>
                   </tr>
                 ))
